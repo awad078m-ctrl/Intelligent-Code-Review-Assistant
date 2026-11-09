@@ -63,7 +63,7 @@ else:
     st.sidebar.info("لا توجد مراجعات سابقة.")
 
 
-language = st.selectbox("اختر لغة البرمجة:", ["Python", "JavaScript", "Java", "C++", "PHP", "Other"], index=0)
+language = st.selectbox("اختر لغة البرمجة:", ["Python", "JavaScript", "Java", "C++", "HTML", "Other"], index=0)
 code_input = st.text_area("أدخل الكود هنا:", height=250)
 
 if st.button("Review Code", type="primary"):
