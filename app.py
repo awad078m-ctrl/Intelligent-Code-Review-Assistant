@@ -13,7 +13,7 @@ init_db()
 st.set_page_config(page_title="Intelligent Code Reviewer", layout="wide")
 st.title("🤖 Intelligent Code Review Assistant")
 
-# تهيئة الذاكرة المؤقتة لعرض النتائج (سواء الجديدة أو المسترجعة من السجل)
+# --- عزل الجلسة: تهيئة الحالة الخاصة بالمستخدم الحالي فقط ---
 if "current_result" not in st.session_state:
     st.session_state.current_result = None
 if "current_language" not in st.session_state:
@@ -29,7 +29,7 @@ if history:
         lang = row[1]
         date_time = str(row[2])[:16]
         
-        # زر لكل سجل قديم في الشريط الجانبي
+        # زر لكل سجل قديم في الشريط الجانبي خاص بهذا المستخدم
         if st.sidebar.button(f"مراجعة #{review_id} | {lang}\n{date_time}", key=f"hist_{review_id}"):
             try:
                 # تحويل النص المخزن بصيغة JSON إلى قاموس بيانات Python
@@ -49,6 +49,7 @@ if history:
                     ) for iss in stored_data.get("issues", [])
                 ]
                 
+                # تخزين النتيجة داخل جلسة المستخدم الحالي فقط
                 st.session_state.current_result = Result(
                     summary=stored_data.get("summary", ""),
                     overall_score=stored_data.get("overall_score", 0),
@@ -56,7 +57,7 @@ if history:
                     improved_code=stored_data.get("improved_code", "")
                 )
                 st.session_state.current_language = lang
-                st.rerun() # إعادة تحميل الصفحة لعرض السجل المختار
+                st.rerun() # إعادة تحميل الصفحة لتحديث واجهة المستخدم الحالية فقط
             except Exception as e:
                 st.sidebar.error(f"خطأ في تحميل السجل: {e}")
 else:
@@ -73,14 +74,14 @@ if st.button("Review Code", type="primary"):
         with st.spinner("جاري تحليل الكود وتقييمه..."):
             try:
                 result = process_code_review(language, code_input)
-                # حفظ النتيجة الجديدة في الجلسة لعرضها
+                # حفظ النتيجة الجديدة في جلسة المستخدم الحالي بمعزل عن الآخرين
                 st.session_state.current_result = result
                 st.session_state.current_language = language
                 st.success("تم تحليل الكود بنجاح!")
             except Exception as e:
                 st.error(f"فشل التحليل. تأكد من صحة API Key أو اتصال الإنترنت. التفاصيل: {str(e)}")
 
-# عرض النتائج (سواء تم إنشاؤها الآن أو تم جلبها من السجل التاريخي)
+# عرض النتائج الخاصة بالمستخدم الحالي فقط
 if st.session_state.current_result:
     result = st.session_state.current_result
     
