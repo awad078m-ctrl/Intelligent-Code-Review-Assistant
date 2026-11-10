@@ -10,23 +10,23 @@ from services.code_reviewer import process_code_review
 st.set_page_config(page_title="Intelligent Code Reviewer", layout="wide")
 st.title("🤖 Intelligent Code Review Assistant")
 
-# --- عزل الجلسات: تهيئة الذاكرة والسجل الخاص بهذا المستخدم فقط ---
+# --- تهيئة الجلسة والسجل الخاص بالمستخدم الحالي ---
+if "session_history" not in st.session_state:
+    st.session_state.session_history = []
 if "current_result" not in st.session_state:
     st.session_state.current_result = None
 if "current_language" not in st.session_state:
     st.session_state.current_language = "Python"
-if "session_history" not in st.session_state:
-    st.session_state.session_history = []
 
-# عرض سجل الجلسة الخاصة بالمستخدم الحالي فقط في الشريط الجانبي
+# الشريط الجانبي لعرض السجل الخاص بالجلسة الحالية
 st.sidebar.header("📂 سجل مراجعات جلستك")
+
 if st.session_state.session_history:
     for idx, item in enumerate(st.session_state.session_history):
-        # زر لكل مراجعة تمت في هذه الجلسة فقط
-        if st.sidebar.button(f"مراجعة #{idx+1} | {item['language']}", key=f"sess_hist_{idx}"):
+        # زر لكل مراجعة تمت في جلسة المستخدم الحالي
+        if st.sidebar.button(f"مراجعة #{idx+1} | {item['language']}", key=f"hist_btn_{idx}"):
             st.session_state.current_result = item["result"]
             st.session_state.current_language = item["language"]
-            st.rerun()
 else:
     st.sidebar.info("لا توجد مراجعات مسجلة في هذه الجلسة بعد.")
 
@@ -42,21 +42,21 @@ if st.button("Review Code", type="primary"):
             try:
                 result = process_code_review(language, code_input)
                 
-                # تخزين النتيجة في الجلسة الحالية وعرضها فوراً للمستخدم فقط
+                # تحديث النتيجة الحالية
                 st.session_state.current_result = result
                 st.session_state.current_language = language
                 
-                # إضافة النتيجة إلى سجل جلسة المستخدم الحالي
+                # إضافة النتيجة فوراً إلى سجل جلسة المستخدم الحالي
                 st.session_state.session_history.append({
                     "language": language,
                     "result": result
                 })
                 
-                st.success("تم تحليل الكود بنجاح!")
+                st.success("تم تحليل الكود بنجاح وإضافته إلى السجل!")
             except Exception as e:
                 st.error(f"فشل التحليل. تأكد من صحة API Key أو اتصال الإنترنت. التفاصيل: {str(e)}")
 
-# عرض النتائج الخاصة بالمستخدم الحالي
+# عرض النتائج (سواء الجديدة أو المختارة من السجل)
 if st.session_state.current_result:
     result = st.session_state.current_result
     
