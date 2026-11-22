@@ -5,84 +5,91 @@ from dotenv import load_dotenv
 load_dotenv(override=True)
 
 import streamlit as st
-from database.database import init_db, all_review
 from services.code_reviewer import process_code_review
-
-init_db()
 
 st.set_page_config(page_title="Intelligent Code Reviewer", layout="wide")
 st.title("🤖 Intelligent Code Review Assistant")
 
+# --- تهيئة الجلسة والسجل الخاص بالمستخدم الحالي ---
+if "session_history" not in st.session_state:
+    st.session_state.session_history = []
 if "current_result" not in st.session_state:
     st.session_state.current_result = None
 if "current_language" not in st.session_state:
     st.session_state.current_language = "Python"
 
-st.sidebar.header("📂 سجل المراجعات السابقة")
-history = all_review()
+# الشريط الجانبي لعرض السجل الخاص بالجلسة الحالية
+st.sidebar.header("📂 سجل مراجعات جلستك")
 
-if history:
-    for row in history:
-        review_id = row[0]
-        lang = row[1]
-        date_time = str(row[2])[:16]
-        
-        if st.sidebar.button(f"مراجعة #{review_id} | {lang}\n{date_time}", key=f"hist_{review_id}"):
-            try:
-                stored_data = json.loads(row[3])
-                
-                from models.schemas import Result, Code
-                issues_list = [
-                    Code(
-                        severity=iss.get("severity", "Medium"),
-                        category=iss.get("category", "General"),
-                        problem=iss.get("problem", ""),
-                        line=iss.get("line"),
-                        explanation=iss.get("explanation", ""),
-                        recommendation=iss.get("recommendation", "")
-                    ) for iss in stored_data.get("issues", [])
-                ]
-                
-                st.session_state.current_result = Result(
-                    summary=stored_data.get("summary", ""),
-                    overall_score=stored_data.get("overall_score", 0),
-                    issues=issues_list,
-                    improved_code=stored_data.get("improved_code", "")
-                )
-                st.session_state.current_language = lang
-                st.rerun() 
-            except Exception as e:
-                st.sidebar.error(f"خطأ في تحميل السجل: {e}")
+if st.session_state.session_history:
+    for idx, item in enumerate(st.session_state.session_history):
+        if st.sidebar.button(f"مراجعة #{idx+1} | {item['language']}", key=f"hist_btn_{idx}"):
+            st.session_state.current_result = item["result"]
+            st.session_state.current_language = item["language"]
 else:
-    st.sidebar.info("لا توجد مراجعات سابقة.")
+    st.sidebar.info("لا توجد مراجعات مسجلة في هذه الجلسة بعد.")
 
+# خيارات الإدخال
+language = st.selectbox(
+    "اختر لغة البرمجة:",
+    ["Python", "JavaScript", "Java", "C++", "HTML", "Other"],
+    index=0
+)
 
-language = st.selectbox("اختر لغة البرمجة:", ["Python", "JavaScript", "Java", "C++", "HTML", "Other"], index=0)
-code_input = st.text_area("أدخل الكود هنا:", height=250)
+# ميزة رفع ملف برمجي أو نصي
+uploaded_file = st.file_uploader(
+    "أو ارفع ملف كود (اختياري):",
+    type=["py", "js", "java", "cpp", "c", "h", "html", "css", "txt"]
+)
+
+uploaded_code = ""
+if uploaded_file is not None:
+    try:
+        uploaded_code = uploaded_file.getvalue().decode("utf-8")
+        st.success(f"تم تحميل الملف: {uploaded_file.name}")
+    except Exception as e:
+        st.error(f"تعذر قراءة الملف: {e}")
+
+# إذا تم رفع ملف، يظهر محتواه تلقائياً في صندوق الكود لسهولة المراجعة أو التعديل
+code_input = st.text_area(
+    "أدخل الكود هنا أو عدّل محتوى الملف المرفوع:",
+    value=uploaded_code if uploaded_code else "",
+    height=250
+)
 
 if st.button("Review Code", type="primary"):
-    if not code_input.strip():
-        st.warning("الرجاء إدخال الكود أولاً.")
+    final_code = code_input.strip()
+    if not final_code:
+        st.warning("الرجاء إدخال كود أو رفع ملف أولاً.")
     else:
         with st.spinner("جاري تحليل الكود وتقييمه..."):
             try:
-                result = process_code_review(language, code_input)
-                
+                result = process_code_review(language, final_code)
+
+                # تحديث النتيجة الحالية
                 st.session_state.current_result = result
                 st.session_state.current_language = language
-                st.success("تم تحليل الكود بنجاح!")
+
+                # إضافة النتيجة فوراً إلى سجل جلسة المستخدم الحالي
+                st.session_state.session_history.append({
+                    "language": language,
+                    "result": result
+                })
+
+                st.success("تم تحليل الكود بنجاح وإضافته إلى السجل!")
             except Exception as e:
                 st.error(f"فشل التحليل. تأكد من صحة API Key أو اتصال الإنترنت. التفاصيل: {str(e)}")
 
+# عرض النتائج (سواء الجديدة أو المختارة من السجل)
 if st.session_state.current_result:
     result = st.session_state.current_result
-    
+
     st.markdown("---")
     st.subheader("📊 ملخص المراجعة")
     st.write(result.summary)
     st.progress(result.overall_score / 100)
     st.write(f"**التقييم العام:** {result.overall_score}/100")
-    
+
     st.subheader("⚠️ المشاكل المكتشفة")
     if result.issues:
         for issue in result.issues:
