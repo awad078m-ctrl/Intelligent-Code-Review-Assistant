@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 def get_key():
-    llm=ChatGroq(temperature=0.3 ,model="openai/gpt-oss-20b" , api_key=os.getenv("GROQ_API_KEY") )
+    llm=ChatGroq(temperature=0.2 ,model="openai/gpt-oss-20b" , api_key=os.getenv("GROQ_API_KEY") )
 
     parser=PydanticOutputParser(pydantic_object=Result)
 
